@@ -1,635 +1,772 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 
-// ============================================================
-// BLOCK TYPES & DEFAULTS
-// ============================================================
-const BLOCK_TYPES = [
-  { type: "hero", label: "히어로 배너", icon: "⬛", category: "레이아웃" },
-  { type: "heading", label: "제목", icon: "H", category: "텍스트" },
-  { type: "text", label: "본문 텍스트", icon: "¶", category: "텍스트" },
-  { type: "image", label: "이미지", icon: "🖼", category: "미디어" },
-  { type: "button", label: "버튼", icon: "⬭", category: "액션" },
-  { type: "divider", label: "구분선", icon: "—", category: "레이아웃" },
-  { type: "columns", label: "2단 컬럼", icon: "⫿", category: "레이아웃" },
-  { type: "product", label: "상품 정보", icon: "🏷", category: "상거래" },
-  { type: "review", label: "리뷰 카드", icon: "★", category: "상거래" },
-  { type: "badge", label: "배지/태그", icon: "◈", category: "액션" },
+// oz_page.css 직접 삽입 (외부 URL 로딩 없이 미리보기 적용)
+const OZ_PAGE_CSS = `
+* {margin:0;padding:0;}
+.wp{display: block;}
+.mp{display: none;}
+.detail-page { text-align:left; font-family:'Montserrat','NotoSansKR',Malgun Gothic,'맑은 고딕',Dotum,'돋움',sans-serif; word-break: break-all; max-width:800px; margin:70px auto;}
+.detail-page img { border:0; line-height:100%;}
+.detail-page .img img {width:100%;}
+.detail-page .opac20 { opacity: 0.2; filter: alpha(opacity=20); }
+.detail-page .opac50 { opacity: 0.5; filter: alpha(opacity=50); }
+.detail-page .opac80 { opacity: 0.8; filter: alpha(opacity=80); }
+.detail-page .opac100 { opacity: 1.0; filter: alpha(opacity=100); }
+.detail-page .a-tit {font-size:36px; font-weight:300; color:#222222; line-height:1.4em; letter-spacing:-0.02em; margin:25px; text-align:center; }
+.detail-page .b-tit {font-size:26px; font-weight:300; color:#222222; line-height:1.5em; letter-spacing:-0.02em; margin:25px 10px; text-align:center; }
+.detail-page .c-tit {font-size:24px; font-weight:300; color:#222222; line-height:1.5em; letter-spacing:-0.02em; margin:10px; text-align:center; }
+.detail-page .txt {font-size:17px; font-weight:400; color:#3b3b3b; line-height:1.6em; letter-spacing:-0.02em; margin:10px; text-align:center; }
+.detail-page .main-tit {font-size: 50px; font-weight:900; color:#222222; line-height:1.3em; letter-spacing:-0.02em; margin:25px; text-align:center;}
+.detail-page .b { font-weight:800; }
+.detail-page .left { text-align:left; }
+.detail-page .hr {border-top:1px solid #ddd; margin: 150px auto; }
+.detail-page .hr-d {border-top:1px dashed #ddd; margin: 150px auto; }
+.detail-page .gap150 {height:150px;}
+.detail-page .gap130 {height:130px;}
+.detail-page .gap100 {height:100px;}
+.detail-page .gap70 {height:70px;}
+.detail-page .gap90 {height:90px;}
+.detail-page .gap50 {height:50px;}
+.detail-page .gap40 {height:40px;}
+.detail-page .gap30 {height:30px;}
+.detail-page .gap20 {height:20px;}
+.detail-page .gap10 {height:10px;}
+.detail-page .gap5 {height:5px;}
+.detail-page .dot { text-emphasis-style: dot; text-emphasis-position: over left; -webkit-text-emphasis-style: dot; -webkit-text-emphasis-position: over; }
+.detail-page .say {}
+.detail-page .say::before { display: block; content:"\\275D"; }
+.detail-page .say::after { display: block; content:"\\275E"; line-height: 2em; }
+.detail-page .cont {padding: 0 10px;}
+.tbl-type01 { background-color: #fcfcfc; border-collapse: collapse; border-spacing: 0px; width:100% !important; }
+.tbl-type01 thead th { background-color: #f7f7f7; border-bottom:1px solid #fcfcfc; padding: 17px 0; text-align:center; letter-spacing:-0.02em; font-weight:700; line-height:1.5em; font-size:15px; color:#4C4C4C; }
+.tbl-type01 tbody th { background-color: #f7f7f7; border-bottom:1px solid #fcfcfc; padding: 17px 0; text-align:center; letter-spacing:-0.02em; font-weight:700; line-height:1.5em; font-size:15px; color:#4C4C4C; }
+.tbl-type01 tbody td { background-color: #fcfcfc; border-bottom:1px solid #fcfcfc; padding: 17px 0; text-align:center; letter-spacing:-0.02em; font-weight:400; line-height:1.5em; font-size:15px; color:#4C4C4C; }
+.tbl-type01 .bg-on { background-color:#E6101B; border-radius: 30px; color: #ffffff; padding: 6px 10px;}
+.tbl-type03 { background-color: #fcfcfc; border-collapse: collapse; border-spacing: 0px; width:100% !important; }
+.tbl-type03 thead th { background-color: #f7f7f7; border-bottom:1px solid #fcfcfc; padding: 13px 25px; text-align:left; letter-spacing:-0.02em; font-weight:700; line-height:1.5em; font-size:15px; color:#3b3b3b; }
+.tbl-type03 tbody th { background-color: #f7f7f7; border-bottom:1px solid #fcfcfc; padding: auto 0; text-align:center; vertical-align: middle; letter-spacing:-0.02em; font-weight:700; line-height:1.5em; font-size:15px; color:#4C4C4C; }
+.tbl-type03 tbody td { background-color: #fcfcfc; border-bottom:1px solid #fcfcfc; padding: 15px 10px; text-align:left; letter-spacing:-0.02em; font-weight:400; line-height:1.5em; font-size:15px; color:#4C4C4C; }
+.tbl-type03 .img { width:35% !important; margin:0 auto;}
+.tbl-type04 { background-color: #fcfcfc; border-collapse: collapse; border-spacing: 0px; width:100% !important;}
+.tbl-type04 thead th { background-color: #f7f7f7; text-align:center; margin-top: 8px;}
+.tbl-type04 thead td { background-color: #f7f7f7; text-align:center; line-height:1.3em; font-size:14px; padding-bottom: 10px; }
+.tbl-type04 tbody td { background-color: #fcfcfc; border-bottom:1px solid #fcfcfc; padding: 17px 0; text-align:center; letter-spacing:-0.02em; font-weight:400; line-height:1.5em; font-size:15px; color:#4C4C4C; }
+.tbl-type04 .img { text-align:center; width:35% !important; margin: 10px auto;}
+.tbl-type04 .bg-on { background-color:#E6101B; border-radius: 30px; color: #ffffff; padding: 5px;}
+.detail-page .m-size {margin-top: 10px;}
+.detail-page .m-size > ul > h2 {font-size:18px; font-weight:700; color:#3b3b3b; line-height:1.4em; letter-spacing:-0.02em; margin:10px 10px; text-align:left;}
+.detail-page .m-size > ul > li {font-size:16px; font-weight:400; color:#3b3b3b; line-height:1.6em; letter-spacing:-0.02em; margin-left:27px; text-align:left; list-style: disc !important;}
+.detail-page ul > h2 {font-size:20px; font-weight:700; color:#4C4C4C; line-height:1.4em; letter-spacing:-0.02em; margin:10px 10px; text-align:left;}
+.detail-page ul > li {font-size:16px; color:#4C4C4C; font-weight:400; line-height:1.5em; letter-spacing:-0.02em; margin-left:24px; text-align:left; list-style: disc !important;}
+@media only screen and (max-width:680px){
+  .wp{display: none;} .mp{display: block;}
+  .detail-page .gap150 {height:100px;}
+  .tbl-type01 thead th, .tbl-type01 tbody td, .tbl-type01 tbody th { padding:14px 0; font-size:14px;}
+  .tbl-type04 thead th { font-size:12px; }
+  .tbl-type04 thead td { font-size:14px; }
+  .tbl-type04 tbody td { padding:14px 0; font-size:14px; }
+  .tbl-type04 .img { width:40% !important; text-align:center !important; margin-top: 10px; }
+}
+`;
+
+// ── 세탁 아이콘 옵션 ──────────────────────────────────────────
+const WASH_ICONS = [
+  { id: "washing-machine", src: "https://ozkiz.com/web/upload/oz_base/icon/wash/042-washing-machine.png", label: "세탁기가능" },
+  { id: "hand-wash", src: "https://ozkiz.com/web/upload/oz_base/icon/wash/014-hand-wash.png", label: "손세탁" },
+  { id: "dry-clean", src: "https://ozkiz.com/web/upload/oz_base/icon/wash/021-dry-clean.png", label: "드라이클리닝" },
+  { id: "temperature", src: "https://ozkiz.com/web/upload/oz_base/icon/wash/035-temperature.png", label: "찬물세탁" },
+  { id: "softener", src: "https://ozkiz.com/web/upload/oz_base/icon/wash/013-softener.png", label: "중성세제", dimmed: true },
+  { id: "dry", src: "https://ozkiz.com/web/upload/oz_base/icon/wash/052-dry.png", label: "건조기불가" },
+  { id: "iron", src: "https://ozkiz.com/web/upload/oz_base/icon/wash/025-iron.png", label: "다림질가능" },
+  { id: "no-iron", src: "https://ozkiz.com/web/upload/oz_base/icon/wash/026-no-iron.png", label: "다림질불가" },
 ];
 
-const createBlock = (type) => ({
-  id: `block_${Date.now()}_${Math.random().toString(36).slice(2)}`,
-  type,
-  props: getDefaultProps(type),
+const PRODUCT_INFO_ROWS = [
+  { key: "season", label: "계절감", options: ["봄/가을", "여름", "겨울"] },
+  { key: "stretch", label: "신축성", options: ["좋음", "보통", "없음"] },
+  { key: "lining", label: "안감", options: ["전체", "부분", "없음"] },
+  { key: "transparency", label: "비침", options: ["있음", "약간", "없음"] },
+  { key: "sizing", label: "사이즈", options: ["작게나옴", "정사이즈", "크게나옴"] },
+];
+
+const SIZE_ROWS = ["어깨너비", "가슴둘레", "총길이", "권장연령"];
+const SIZE_COLS = ["100", "110", "120", "130", "140"];
+
+const DEFAULT_SIZE_DATA = {
+  "어깨너비": ["23.5", "25", "26.5", "28", "29.5"],
+  "가슴둘레": ["62", "66", "70", "74", "78"],
+  "총길이": ["52", "56.5", "61", "65.5", "70"],
+  "권장연령": ["3세초과", "4-5세", "5-6세", "6-7세", "7-8세"],
+};
+
+// ── 초기 상태 ──────────────────────────────────────────────────
+const initState = () => ({
+  // 기본 정보
+  productCode: "",
+  imageBaseUrl: "https://ozkizonline.cafe24.com/ozkiz/wear/",
+  // 이미지 (로컬 업로드 또는 URL)
+  images: [
+    { key: "main", label: "메인 이미지", file: null, preview: "", url: "" },
+    { key: "02", label: "착용 이미지", file: null, preview: "", url: "" },
+    { key: "04", label: "체크포인트 이미지", file: null, preview: "", url: "" },
+    { key: "1080", label: "컬러 이미지", file: null, preview: "", url: "" },
+  ],
+  // 텍스트
+  mainTitle: "새하얀 꽃잎이\n내려앉은 여름",
+  productNameBold: "코튼플로럴",
+  productNameNormal: "원피스 가디건",
+  description: "단추를 모두 잠그면 청초한 원피스로,\n단추를 열면 가벼운 민소매 코튼 가디건으로 변신하는\n다재다능한 아이템이에요!",
+  checkpoints: "섬세한 아일렛 펀칭 레이스\n마법 같은 2-way 버튼다운\n로맨틱한 허리 셔링 주름",
+  colorInfo: "화이트 / white",
+  colorDot: "#f7f7f7",
+  // 사이즈
+  sizeType: "상의",
+  sizeData: DEFAULT_SIZE_DATA,
+  // 제품정보
+  productInfo: { season: "여름", stretch: "없음", lining: "없음", transparency: "약간", sizing: "정사이즈" },
+  // 세탁
+  washIcons: ["washing-machine", "hand-wash", "temperature", "softener", "dry"],
+  washNote: "면 혼방 소재 제품의 특성상\n찬물 세탁 및 색상별 구분 세탁을 권해드리며,\n건조기 사용시 변형이 있을 수 있으니 자연건조 해주세요.",
+  // 제품 상세
+  productNumber: "",
+  material: "주원단:면100%",
+  manufacturer: "(주)오픈한 오즈키즈",
+  madeIn: "중국",
 });
 
-function getDefaultProps(type) {
-  switch (type) {
-    case "hero":
-      return {
-        title: "강력한 헤드라인을 입력하세요",
-        subtitle: "고객의 마음을 사로잡는 서브 문구",
-        bg: "#1a1a2e",
-        color: "#ffffff",
-        align: "center",
-        height: 320,
-      };
-    case "heading":
-      return { text: "섹션 제목", level: "h2", color: "#111827", align: "left", size: 32 };
-    case "text":
-      return {
-        text: "상품에 대한 설명을 여기에 입력하세요. 고객이 궁금해 할 내용을 자세히 작성해 보세요.",
-        color: "#374151",
-        align: "left",
-        size: 16,
-        lineHeight: 1.8,
-      };
-    case "image":
-      return {
-        src: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&q=80",
-        alt: "이미지",
-        width: "100%",
-        radius: 12,
-        caption: "",
-      };
-    case "button":
-      return {
-        label: "지금 구매하기",
-        bg: "#4f46e5",
-        color: "#ffffff",
-        radius: 8,
-        size: "md",
-        align: "center",
-        url: "#",
-        fullWidth: false,
-      };
-    case "divider":
-      return { style: "solid", color: "#e5e7eb", margin: 24 };
-    case "columns":
-      return {
-        left: "왼쪽 컬럼 내용을 입력하세요.",
-        right: "오른쪽 컬럼 내용을 입력하세요.",
-        gap: 24,
-        bg: "#f9fafb",
-        radius: 12,
-      };
-    case "product":
-      return {
-        name: "프리미엄 상품명",
-        price: "89,000",
-        originalPrice: "120,000",
-        desc: "이 상품의 주요 특징과 장점을 간결하게 설명하세요.",
-        badge: "BEST",
-        badgeColor: "#ef4444",
-      };
-    case "review":
-      return {
-        name: "김민지",
-        rating: 5,
-        text: "정말 만족스러운 상품이에요! 배송도 빠르고 품질도 너무 좋아요.",
-        date: "2024.03.15",
-        verified: true,
-      };
-    case "badge":
-      return { text: "신상품", bg: "#4f46e5", color: "#fff", radius: 20, size: 14 };
-    default:
-      return {};
-  }
-}
-
-// ============================================================
-// BLOCK RENDERER
-// ============================================================
-function BlockRenderer({ block, selected, onSelect, onClick }) {
-  const p = block.props;
-  const base = {
-    cursor: "pointer",
-    outline: selected ? "2px solid #4f46e5" : "2px solid transparent",
-    outlineOffset: 2,
-    borderRadius: 8,
-    transition: "outline 0.15s",
-    position: "relative",
+// ── HTML 생성 함수 ─────────────────────────────────────────────
+function generateHTML(s) {
+  const getImgSrc = (img) => {
+    if (img.url) return img.url;
+    if (img.file) return `[이미지: ${img.file.name}]`;
+    const code = s.productCode;
+    const map = { main: `${code}_main_01.jpg`, "02": `${code}_02.jpg`, "04": `${code}_04.jpg`, "1080": `${code}_1080.jpg` };
+    return s.imageBaseUrl + (map[img.key] || "");
   };
 
-  const wrap = (children) => (
-    <div style={base} onClick={(e) => { e.stopPropagation(); onSelect(); onClick && onClick(); }}>
-      {selected && (
-        <div style={{
-          position: "absolute", top: -24, left: 0, background: "#4f46e5",
-          color: "#fff", fontSize: 11, padding: "2px 8px", borderRadius: "4px 4px 0 0",
-          fontFamily: "monospace", zIndex: 10,
-        }}>
-          {BLOCK_TYPES.find(b => b.type === block.type)?.label}
-        </div>
-      )}
-      {children}
-    </div>
-  );
+  const mainTitleHtml = s.mainTitle.split("\n").join("<br>\n\t\t");
+  const descHtml = s.description.split("\n").join("<br>\n\t\t");
+  const checkHtml = s.checkpoints.split("\n").map(l => `· ${l}`).join("<br>\n\t\t");
 
-  switch (block.type) {
-    case "hero":
-      return wrap(
-        <div style={{
-          background: p.bg, color: p.color, padding: "48px 32px",
-          textAlign: p.align, minHeight: p.height, display: "flex",
-          flexDirection: "column", justifyContent: "center", borderRadius: 8,
-        }}>
-          <div style={{ fontSize: 36, fontWeight: 800, marginBottom: 12, lineHeight: 1.2 }}>{p.title}</div>
-          <div style={{ fontSize: 18, opacity: 0.8 }}>{p.subtitle}</div>
-        </div>
-      );
-    case "heading":
-      const Tag = p.level || "h2";
-      return wrap(
-        <div style={{ color: p.color, textAlign: p.align, fontSize: p.size, fontWeight: 700, lineHeight: 1.3, padding: "4px 0" }}>
-          {p.text}
-        </div>
-      );
-    case "text":
-      return wrap(
-        <p style={{ color: p.color, textAlign: p.align, fontSize: p.size, lineHeight: p.lineHeight, margin: 0, padding: "2px 0" }}>
-          {p.text}
-        </p>
-      );
-    case "image":
-      return wrap(
-        <div style={{ textAlign: "center" }}>
-          <img src={p.src} alt={p.alt} style={{ width: p.width, borderRadius: p.radius, display: "block", margin: "0 auto" }} />
-          {p.caption && <div style={{ marginTop: 8, fontSize: 13, color: "#9ca3af" }}>{p.caption}</div>}
-        </div>
-      );
-    case "button":
-      const sizes = { sm: "12px 24px", md: "14px 32px", lg: "18px 48px" };
-      return wrap(
-        <div style={{ textAlign: p.align }}>
-          <span style={{
-            display: "inline-block", background: p.bg, color: p.color,
-            padding: sizes[p.size], borderRadius: p.radius, fontWeight: 600,
-            fontSize: p.size === "lg" ? 18 : p.size === "sm" ? 13 : 15,
-            width: p.fullWidth ? "100%" : "auto", textAlign: "center",
-          }}>
-            {p.label}
-          </span>
-        </div>
-      );
-    case "divider":
-      return wrap(<hr style={{ border: "none", borderTop: `1px ${p.style} ${p.color}`, margin: `${p.margin}px 0` }} />);
-    case "columns":
-      return wrap(
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: p.gap, background: p.bg, padding: 24, borderRadius: p.radius }}>
-          <div style={{ background: "#fff", padding: 20, borderRadius: 8, fontSize: 14, color: "#374151" }}>{p.left}</div>
-          <div style={{ background: "#fff", padding: 20, borderRadius: 8, fontSize: 14, color: "#374151" }}>{p.right}</div>
-        </div>
-      );
-    case "product":
-      return wrap(
-        <div style={{ background: "#fff", border: "1px solid #f3f4f6", borderRadius: 12, padding: "24px", boxShadow: "0 1px 8px rgba(0,0,0,0.06)" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-            <div style={{ fontWeight: 800, fontSize: 22, color: "#111827" }}>{p.name}</div>
-            {p.badge && <span style={{ background: p.badgeColor, color: "#fff", fontSize: 11, padding: "3px 10px", borderRadius: 20, fontWeight: 700 }}>{p.badge}</span>}
-          </div>
-          <div style={{ marginTop: 12, display: "flex", alignItems: "baseline", gap: 10 }}>
-            <span style={{ fontWeight: 800, fontSize: 28, color: "#4f46e5" }}>₩{p.price}</span>
-            {p.originalPrice && <span style={{ fontSize: 15, color: "#9ca3af", textDecoration: "line-through" }}>₩{p.originalPrice}</span>}
-          </div>
-          <div style={{ marginTop: 12, fontSize: 14, color: "#6b7280", lineHeight: 1.7 }}>{p.desc}</div>
-        </div>
-      );
-    case "review":
-      return wrap(
-        <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 12, padding: 20 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <div style={{ width: 36, height: 36, background: "#fbbf24", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#fff" }}>
-                {p.name[0]}
-              </div>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 14, color: "#111827" }}>{p.name}</div>
-                <div style={{ fontSize: 12, color: "#fbbf24" }}>{"★".repeat(p.rating)}{"☆".repeat(5 - p.rating)}</div>
-              </div>
-            </div>
-            <div style={{ fontSize: 12, color: "#9ca3af" }}>
-              {p.date}
-              {p.verified && <span style={{ marginLeft: 6, background: "#d1fae5", color: "#059669", padding: "2px 6px", borderRadius: 10, fontSize: 11 }}>구매확인</span>}
-            </div>
-          </div>
-          <div style={{ fontSize: 14, color: "#374151", lineHeight: 1.7 }}>{p.text}</div>
-        </div>
-      );
-    case "badge":
-      return wrap(
-        <div style={{ padding: "4px 0" }}>
-          <span style={{ background: p.bg, color: p.color, fontSize: p.size, padding: "5px 14px", borderRadius: p.radius, fontWeight: 700 }}>
-            {p.text}
-          </span>
-        </div>
-      );
-    default:
-      return null;
-  }
+  const sizeRows = SIZE_ROWS.map(row =>
+    `\t\t\t\t\t<tr>\n\t\t\t\t\t\t<th>${row}</th>\n${SIZE_COLS.map((_, i) => `\t\t\t\t\t\t<td>${s.sizeData[row]?.[i] || ""}</td>`).join("\n")}\n\t\t\t\t\t</tr>`
+  ).join("\n");
+
+  const productInfoRows = PRODUCT_INFO_ROWS.map(row => {
+    const selected = s.productInfo[row.key];
+    const cells = row.options.map(opt =>
+      opt === selected ? `<td><span class="bg-on">${opt}</span></td>` : `<td>${opt}</td>`
+    ).join("\n\t\t\t\t\t\t");
+    return `\t\t\t\t\t<tr>\n\t\t\t\t\t\t<th>${row.label}</th>\n\t\t\t\t\t\t${cells}\n\t\t\t\t\t</tr>`;
+  }).join("\n");
+
+  const selectedWashIcons = s.washIcons.map(id => WASH_ICONS.find(w => w.id === id)).filter(Boolean);
+  const washIconsHtml = selectedWashIcons.map(w =>
+    `\t\t\t\t\t<th>\n\t\t\t\t\t\t<div class="img ${w.dimmed ? "opac20" : "opac80"}"><img src="${w.src}" alt=""></div>\n\t\t\t\t\t</th>`
+  ).join("\n");
+  const washLabelsHtml = selectedWashIcons.map(w =>
+    `\t\t\t\t\t<td><span class="${w.dimmed ? "opac20" : "opac100 b"}">${w.label}</span></td>`
+  ).join("\n");
+  const colW = Math.round(100 / selectedWashIcons.length);
+  const washColgroup = selectedWashIcons.map(() => `\t\t\t\t<col width="${colW}%">`).join("\n");
+  const washNoteHtml = s.washNote.split("\n").join("<br>\n\t\t\t\t\t\t\t");
+
+  return `<!-- 스타일시트 링크 -->
+<link rel="stylesheet" href="https://ozkiz1.cafe24.com/web/upload/oz_base/css/oz_page.css" type="text/css">
+
+<!-- s: detail-page -->
+<div class="detail-page" style="max-width: 860px;">
+
+\t<h2 class="a-tit b say" style="margin: 100px auto;">
+\t\t${mainTitleHtml}
+\t</h2>
+
+\t<div class="img" id="onlyimg">
+\t\t<img alt="오즈키즈 아동복" src="${getImgSrc(s.images[0])}">
+\t</div>
+
+\t<div class="gap150"></div>
+
+\t<h1 class="a-tit">
+\t\t<span class="b" style="color: #000000;">${s.productNameBold}</span>
+\t\t<br>${s.productNameNormal}
+\t</h1>
+
+\t<div class="gap50"></div>
+
+\t<div class="txt">
+\t\t${descHtml}
+\t</div>
+
+\t<div class="gap150"></div>
+
+\t<div class="img" id="onlyimg">
+\t\t<img alt="오즈키즈 아동복" src="${getImgSrc(s.images[1])}">
+\t</div>
+
+\t<div class="gap150"></div>
+
+\t<h4 class="b-tit left b">체크포인트</h4>
+\t<div class="txt left">
+\t\t${checkHtml}
+\t</div>
+
+\t<div class="gap50"></div>
+
+\t<div class="img" id="onlyimg">
+\t\t<img alt="오즈키즈 아동복" src="${getImgSrc(s.images[2])}">
+\t</div>
+
+\t<h4 class="b-tit left b">컬러정보</h4>
+\t<div class="txt left"><span class="b" style="color: ${s.colorDot};">●</span> ${s.colorInfo}
+\t</div>
+\t<div class="img" id="onlyimg">
+\t\t<img alt="오즈키즈 아동복" src="${getImgSrc(s.images[3])}">
+\t</div>
+
+\t<div class="gap150"></div>
+
+\t<h4 class="b-tit left b">사이즈 정보</h4>
+\t<p class="txt left">
+\t\t상세 사이즈의 치수는 측정 방법과 위치에 따라 1-3cm 정도의 오차가 발생할 수 있습니다.<br>
+\t\t구매 시 상세 사이즈를 확인 바랍니다.
+\t</p>
+\t<div class="cont">
+\t\t<p class="txt b left">${s.sizeType} 사이즈</p>
+\t\t<table class="tbl-type01">
+\t\t\t<colgroup>
+\t\t\t\t<col width="16%">
+${SIZE_COLS.map(() => `\t\t\t\t<col width="15%">`).join("\n")}
+\t\t\t</colgroup>
+\t\t\t<thead>
+\t\t\t\t<tr>
+\t\t\t\t\t<th>사이즈</th>
+${SIZE_COLS.map(c => `\t\t\t\t\t<th>${c}</th>`).join("\n")}
+\t\t\t\t</tr>
+\t\t\t</thead>
+\t\t\t<tbody>
+${sizeRows}
+\t\t\t</tbody>
+\t\t</table>
+\t</div>
+
+\t<div class="gap150"></div>
+
+\t<h4 class="b-tit left b">제품정보 보기</h4>
+\t<div class="cont">
+\t\t<table class="tbl-type01">
+\t\t\t<colgroup>
+\t\t\t\t<col width="25%"><col width="25%"><col width="25%"><col width="25%">
+\t\t\t</colgroup>
+\t\t\t<tbody>
+${productInfoRows}
+\t\t\t</tbody>
+\t\t</table>
+\t</div>
+
+\t<div class="gap150"></div>
+
+\t<h4 class="b-tit left b">세탁안내</h4>
+\t<div class="cont">
+\t\t<table class="tbl-type04">
+\t\t\t<colgroup>
+${washColgroup}
+\t\t\t</colgroup>
+\t\t\t<thead>
+\t\t\t\t<tr>
+${washIconsHtml}
+\t\t\t\t</tr>
+\t\t\t\t<tr>
+${washLabelsHtml}
+\t\t\t\t</tr>
+\t\t\t</thead>
+\t\t\t<tbody>
+\t\t\t\t<tr>
+\t\t\t\t\t<td colspan="${selectedWashIcons.length}">
+\t\t\t\t\t\t${washNoteHtml}
+\t\t\t\t\t</td>
+\t\t\t\t</tr>
+\t\t\t</tbody>
+\t\t</table>
+\t</div>
+
+\t<div class="gap150"></div>
+
+\t<h4 class="b-tit left b">제품상세 정보 보기</h4>
+\t<div class="cont">
+\t\t<table class="tbl-type01">
+\t\t\t<colgroup>
+\t\t\t\t<col width="25%"><col width="*">
+\t\t\t</colgroup>
+\t\t\t<tbody>
+\t\t\t\t<tr><th>제품 번호</th><td>${s.productNumber}</td></tr>
+\t\t\t\t<tr><th>제품 소재</th><td>${s.material.split("\n").join("<br>")}</td></tr>
+\t\t\t\t<tr><th>제조사/수입사</th><td>${s.manufacturer}</td></tr>
+\t\t\t\t<tr><th>제조국</th><td>${s.madeIn}</td></tr>
+\t\t\t</tbody>
+\t\t</table>
+\t</div>
+
+\t<div class="gap150"></div>
+
+\t<h4 class="b-tit left b">인증정보</h4>
+\t<div class="cont">
+\t\t<table class="tbl-type01">
+\t\t\t<colgroup>
+\t\t\t\t<col width="20%"><col width="*">
+\t\t\t</colgroup>
+\t\t\t<tbody>
+\t\t\t\t<tr>
+\t\t\t\t\t<th><img src="https://ozkiz.com/web/upload/oz_kc_256.png" style="width: 40%;"></th>
+\t\t\t\t\t<td>
+\t\t\t\t\t\t<p class="left" style="margin: auto 10px;">
+\t\t\t\t\t\t\t본 제품은 FITI 시험 연구원을 통해 <span class="b">공급자 적합성 확인 인증</span>을 받은 안전한 소재로 제작된 안전한 제품입니다.
+\t\t\t\t\t\t</p>
+\t\t\t\t\t</td>
+\t\t\t\t</tr>
+\t\t\t</tbody>
+\t\t</table>
+\t</div>
+
+\t<div class="gap150"></div>
+
+</div>
+<!-- e: detail-page //-->`;
 }
 
-// ============================================================
-// PROPERTY PANEL
-// ============================================================
-function PropPanel({ block, onChange }) {
-  if (!block) return (
-    <div style={{ padding: 24, color: "#9ca3af", fontSize: 13, textAlign: "center", marginTop: 40 }}>
-      <div style={{ fontSize: 32, marginBottom: 12 }}>←</div>
-      블록을 클릭하면<br />속성을 편집할 수 있어요
+// ── UI 컴포넌트 ────────────────────────────────────────────────
+const Section = ({ title, children }) => (
+  <div style={{ marginBottom: 32 }}>
+    <div style={{ fontWeight: 700, fontSize: 13, color: "#4f46e5", marginBottom: 16, paddingBottom: 8, borderBottom: "2px solid #e0e7ff", letterSpacing: 0.5 }}>
+      {title}
     </div>
-  );
+    {children}
+  </div>
+);
 
-  const p = block.props;
-  const set = (key, val) => onChange({ ...p, [key]: val });
+const Field = ({ label, children, hint }) => (
+  <div style={{ marginBottom: 14 }}>
+    <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#374151", marginBottom: 5 }}>{label}</label>
+    {hint && <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 4 }}>{hint}</div>}
+    {children}
+  </div>
+);
 
-  const Field = ({ label, children }) => (
+const Input = ({ value, onChange, placeholder }) => (
+  <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+    style={{ width: "100%", padding: "8px 10px", border: "1px solid #e5e7eb", borderRadius: 6, fontSize: 13, boxSizing: "border-box" }} />
+);
+
+const Textarea = ({ value, onChange, rows = 3, placeholder }) => (
+  <textarea value={value} onChange={e => onChange(e.target.value)} rows={rows} placeholder={placeholder}
+    style={{ width: "100%", padding: "8px 10px", border: "1px solid #e5e7eb", borderRadius: 6, fontSize: 13, resize: "vertical", boxSizing: "border-box", lineHeight: 1.6 }} />
+);
+
+// ── 이미지 업로드 컴포넌트 ─────────────────────────────────────
+function ImageUploader({ image, onChange }) {
+  const inputRef = useRef();
+  const [dragOver, setDragOver] = useState(false);
+
+  const handleFile = (file) => {
+    if (!file || !file.type.startsWith("image/")) return;
+    const preview = URL.createObjectURL(file);
+    onChange({ ...image, file, preview, url: "" });
+  };
+
+  return (
     <div style={{ marginBottom: 16 }}>
-      <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>{label}</label>
-      {children}
-    </div>
-  );
-  const Input = ({ k, type = "text", ...rest }) => (
-    <input value={p[k] ?? ""} type={type} onChange={e => set(k, type === "number" ? Number(e.target.value) : e.target.value)}
-      style={{ width: "100%", padding: "8px 10px", border: "1px solid #e5e7eb", borderRadius: 6, fontSize: 13, boxSizing: "border-box", background: "#fff" }}
-      {...rest} />
-  );
-  const ColorField = ({ k, label }) => (
-    <Field label={label}>
-      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-        <input type="color" value={p[k] || "#000000"} onChange={e => set(k, e.target.value)}
-          style={{ width: 40, height: 36, border: "1px solid #e5e7eb", borderRadius: 6, cursor: "pointer", padding: 2 }} />
-        <input value={p[k] || ""} onChange={e => set(k, e.target.value)}
-          style={{ flex: 1, padding: "8px 10px", border: "1px solid #e5e7eb", borderRadius: 6, fontSize: 13 }} />
+      <div style={{ fontSize: 12, fontWeight: 600, color: "#374151", marginBottom: 6 }}>{image.label}</div>
+      <div
+        onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={e => { e.preventDefault(); setDragOver(false); handleFile(e.dataTransfer.files[0]); }}
+        onClick={() => inputRef.current.click()}
+        style={{
+          border: `2px dashed ${dragOver ? "#4f46e5" : "#d1d5db"}`,
+          borderRadius: 8, padding: 12, cursor: "pointer", textAlign: "center",
+          background: dragOver ? "#eef2ff" : "#fafafa", transition: "all 0.15s",
+          minHeight: 80, display: "flex", alignItems: "center", justifyContent: "center", gap: 12,
+        }}
+      >
+        {image.preview ? (
+          <>
+            <img src={image.preview} alt="" style={{ height: 60, objectFit: "contain", borderRadius: 4 }} />
+            <span style={{ fontSize: 12, color: "#6b7280" }}>{image.file?.name}</span>
+          </>
+        ) : (
+          <div>
+            <div style={{ fontSize: 20, marginBottom: 4 }}>🖼</div>
+            <div style={{ fontSize: 12, color: "#9ca3af" }}>드래그앤드롭 또는 클릭해서 업로드</div>
+          </div>
+        )}
       </div>
-    </Field>
-  );
-  const Textarea = ({ k }) => (
-    <textarea value={p[k] ?? ""} onChange={e => set(k, e.target.value)} rows={3}
-      style={{ width: "100%", padding: "8px 10px", border: "1px solid #e5e7eb", borderRadius: 6, fontSize: 13, resize: "vertical", boxSizing: "border-box" }} />
-  );
-  const Select = ({ k, options }) => (
-    <select value={p[k] ?? ""} onChange={e => set(k, e.target.value)}
-      style={{ width: "100%", padding: "8px 10px", border: "1px solid #e5e7eb", borderRadius: 6, fontSize: 13 }}>
-      {options.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
-    </select>
-  );
-
-  return (
-    <div style={{ padding: "20px 16px" }}>
-      <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 20, color: "#111827", paddingBottom: 12, borderBottom: "1px solid #f3f4f6" }}>
-        {BLOCK_TYPES.find(b => b.type === block.type)?.icon} {BLOCK_TYPES.find(b => b.type === block.type)?.label} 설정
+      <input ref={inputRef} type="file" accept="image/*" style={{ display: "none" }}
+        onChange={e => handleFile(e.target.files[0])} />
+      <div style={{ marginTop: 6 }}>
+        <input value={image.url} onChange={e => onChange({ ...image, url: e.target.value, file: null, preview: "" })}
+          placeholder="또는 이미지 URL 직접 입력"
+          style={{ width: "100%", padding: "6px 10px", border: "1px solid #e5e7eb", borderRadius: 6, fontSize: 12, boxSizing: "border-box", color: "#6b7280" }} />
       </div>
-
-      {block.type === "hero" && <>
-        <Field label="제목"><Textarea k="title" /></Field>
-        <Field label="부제목"><Input k="subtitle" /></Field>
-        <ColorField k="bg" label="배경색" />
-        <ColorField k="color" label="텍스트 색상" />
-        <Field label="높이(px)"><Input k="height" type="number" /></Field>
-        <Field label="정렬"><Select k="align" options={[{ v: "left", l: "왼쪽" }, { v: "center", l: "가운데" }, { v: "right", l: "오른쪽" }]} /></Field>
-      </>}
-
-      {block.type === "heading" && <>
-        <Field label="텍스트"><Input k="text" /></Field>
-        <Field label="태그"><Select k="level" options={[{ v: "h1", l: "H1" }, { v: "h2", l: "H2" }, { v: "h3", l: "H3" }]} /></Field>
-        <Field label="크기(px)"><Input k="size" type="number" /></Field>
-        <ColorField k="color" label="색상" />
-        <Field label="정렬"><Select k="align" options={[{ v: "left", l: "왼쪽" }, { v: "center", l: "가운데" }, { v: "right", l: "오른쪽" }]} /></Field>
-      </>}
-
-      {block.type === "text" && <>
-        <Field label="본문"><Textarea k="text" /></Field>
-        <Field label="크기(px)"><Input k="size" type="number" /></Field>
-        <Field label="줄간격"><Input k="lineHeight" type="number" /></Field>
-        <ColorField k="color" label="색상" />
-        <Field label="정렬"><Select k="align" options={[{ v: "left", l: "왼쪽" }, { v: "center", l: "가운데" }, { v: "right", l: "오른쪽" }]} /></Field>
-      </>}
-
-      {block.type === "image" && <>
-        <Field label="이미지 URL"><Input k="src" /></Field>
-        <Field label="대체 텍스트"><Input k="alt" /></Field>
-        <Field label="캡션"><Input k="caption" /></Field>
-        <Field label="모서리 반경(px)"><Input k="radius" type="number" /></Field>
-      </>}
-
-      {block.type === "button" && <>
-        <Field label="버튼 텍스트"><Input k="label" /></Field>
-        <Field label="링크 URL"><Input k="url" /></Field>
-        <ColorField k="bg" label="배경색" />
-        <ColorField k="color" label="텍스트 색상" />
-        <Field label="크기"><Select k="size" options={[{ v: "sm", l: "작게" }, { v: "md", l: "중간" }, { v: "lg", l: "크게" }]} /></Field>
-        <Field label="모서리 반경(px)"><Input k="radius" type="number" /></Field>
-        <Field label="정렬"><Select k="align" options={[{ v: "left", l: "왼쪽" }, { v: "center", l: "가운데" }, { v: "right", l: "오른쪽" }]} /></Field>
-      </>}
-
-      {block.type === "divider" && <>
-        <Field label="선 스타일"><Select k="style" options={[{ v: "solid", l: "실선" }, { v: "dashed", l: "점선" }, { v: "dotted", l: "점" }]} /></Field>
-        <ColorField k="color" label="색상" />
-        <Field label="상하 여백(px)"><Input k="margin" type="number" /></Field>
-      </>}
-
-      {block.type === "columns" && <>
-        <Field label="왼쪽 내용"><Textarea k="left" /></Field>
-        <Field label="오른쪽 내용"><Textarea k="right" /></Field>
-        <ColorField k="bg" label="배경색" />
-        <Field label="간격(px)"><Input k="gap" type="number" /></Field>
-      </>}
-
-      {block.type === "product" && <>
-        <Field label="상품명"><Input k="name" /></Field>
-        <Field label="판매가"><Input k="price" /></Field>
-        <Field label="원가"><Input k="originalPrice" /></Field>
-        <Field label="설명"><Textarea k="desc" /></Field>
-        <Field label="배지 텍스트"><Input k="badge" /></Field>
-        <ColorField k="badgeColor" label="배지 색상" />
-      </>}
-
-      {block.type === "review" && <>
-        <Field label="이름"><Input k="name" /></Field>
-        <Field label="평점 (1-5)"><Input k="rating" type="number" min="1" max="5" /></Field>
-        <Field label="리뷰 내용"><Textarea k="text" /></Field>
-        <Field label="날짜"><Input k="date" /></Field>
-      </>}
-
-      {block.type === "badge" && <>
-        <Field label="텍스트"><Input k="text" /></Field>
-        <ColorField k="bg" label="배경색" />
-        <ColorField k="color" label="텍스트 색상" />
-        <Field label="크기(px)"><Input k="size" type="number" /></Field>
-        <Field label="반경(px)"><Input k="radius" type="number" /></Field>
-      </>}
     </div>
   );
 }
 
-// ============================================================
-// MAIN APP
-// ============================================================
-export default function PageEditor() {
-  const [blocks, setBlocks] = useState([
-    createBlock("hero"),
-    createBlock("product"),
-    createBlock("text"),
-    createBlock("button"),
-  ]);
-  const [selected, setSelected] = useState(null);
-  const [dragOver, setDragOver] = useState(null);
-  const [dragging, setDragging] = useState(null);
-  const [sidebarTab, setSidebarTab] = useState("blocks");
-  const [previewMode, setPreviewMode] = useState(false);
-  const [showHtml, setShowHtml] = useState(false);
-  const dragItem = useRef(null);
-  const dragType = useRef(null); // "block" | "new"
+// ── 메인 앱 ───────────────────────────────────────────────────
+export default function OzkizGenerator() {
+  const [s, setS] = useState(initState());
+  const [tab, setTab] = useState("edit");
+  const [copied, setCopied] = useState(false);
+  const iframeRef = useRef(null);
+  const iframeReady = useRef(false);
+  const [savingJpg, setSavingJpg] = useState(false);
 
-  // ---- Drag from palette ----
-  const onPaletteDragStart = (type) => {
-    dragType.current = "new";
-    dragItem.current = type;
-  };
+  const set = (key, val) => setS(prev => ({ ...prev, [key]: val }));
+  const html = generateHTML(s);
 
-  // ---- Drag existing block ----
-  const onBlockDragStart = (id) => {
-    dragType.current = "block";
-    dragItem.current = id;
-    setDragging(id);
-  };
+  // 미리보기: 스크롤 위치 유지하면서 내용 업데이트
+  useEffect(() => {
+    if (tab !== "preview") return;
+    const iframe = iframeRef.current;
+    if (!iframe) return;
 
-  const onDrop = (targetIdx) => {
-    if (dragType.current === "new") {
-      const nb = createBlock(dragItem.current);
-      setBlocks(prev => {
-        const arr = [...prev];
-        arr.splice(targetIdx, 0, nb);
-        return arr;
-      });
-      setSelected(nb.id);
-    } else if (dragType.current === "block") {
-      const fromIdx = blocks.findIndex(b => b.id === dragItem.current);
-      if (fromIdx === -1 || fromIdx === targetIdx) return;
-      setBlocks(prev => {
-        const arr = [...prev];
-        const [moved] = arr.splice(fromIdx, 1);
-        const insertIdx = fromIdx < targetIdx ? targetIdx - 1 : targetIdx;
-        arr.splice(insertIdx, 0, moved);
-        return arr;
-      });
+    const inject = () => {
+      try {
+        const win = iframe.contentWindow;
+        const doc = win.document;
+        const scrollY = win.scrollY || 0;
+        // CSS가 없으면 주입
+        if (!doc.head.querySelector("style[data-oz]")) {
+          const style = doc.createElement("style");
+          style.setAttribute("data-oz", "1");
+          style.textContent = OZ_PAGE_CSS;
+          doc.head.appendChild(style);
+        }
+        doc.body.innerHTML = html;
+        win.scrollTo(0, scrollY);
+        iframeReady.current = true;
+      } catch (e) {}
+    };
+
+    // iframe이 아직 로드 안된 경우 대비
+    if (iframe.contentDocument && iframe.contentDocument.readyState === "complete") {
+      inject();
+    } else {
+      iframe.onload = inject;
     }
-    setDragOver(null);
-    setDragging(null);
+  }, [html, tab]);
+
+  const handleIframeLoad = () => {};
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(html);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
-  const deleteBlock = (id) => {
-    setBlocks(prev => prev.filter(b => b.id !== id));
-    if (selected === id) setSelected(null);
+  const handleDownload = () => {
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${s.productCode || "detail"}_page.html`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
-  const updateBlock = (id, props) => {
-    setBlocks(prev => prev.map(b => b.id === id ? { ...b, props } : b));
+  const handleSaveJpg = async () => {
+    setSavingJpg(true);
+    try {
+      // html2canvas를 메인 페이지에 로드
+      await new Promise((resolve, reject) => {
+        if (window.html2canvas) { resolve(); return; }
+        const script = document.createElement("script");
+        script.src = "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+      });
+
+      // iframe 내용을 숨겨진 div에 복제해서 캡처
+      const iframe = iframeRef.current;
+      const doc = iframe.contentDocument || iframe.contentWindow.document;
+      const fullHtml = `<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><style>${OZ_PAGE_CSS}</style></head><body style="margin:0;background:#fff;">${html}</body></html>`;
+
+      // 숨겨진 iframe으로 전체 페이지 렌더링
+      const hiddenIframe = document.createElement("iframe");
+      hiddenIframe.style.cssText = "position:fixed;left:-9999px;top:0;width:860px;height:auto;border:none;visibility:hidden;";
+      document.body.appendChild(hiddenIframe);
+
+      await new Promise(resolve => {
+        hiddenIframe.onload = resolve;
+        hiddenIframe.srcdoc = fullHtml;
+      });
+
+      // 전체 높이로 iframe 설정
+      const hiddenDoc = hiddenIframe.contentDocument;
+      const fullHeight = hiddenDoc.documentElement.scrollHeight;
+      hiddenIframe.style.height = fullHeight + "px";
+      hiddenIframe.style.visibility = "visible";
+
+      // 잠깐 대기 후 캡처 (이미지 로딩 대기)
+      await new Promise(r => setTimeout(r, 800));
+
+      const canvas = await window.html2canvas(hiddenDoc.body, {
+        useCORS: true,
+        allowTaint: true,
+        scale: 2,
+        width: 860,
+        height: fullHeight,
+        windowWidth: 860,
+        windowHeight: fullHeight,
+        scrollX: 0,
+        scrollY: 0,
+        backgroundColor: "#ffffff",
+        foreignObjectRendering: false,
+      });
+
+      document.body.removeChild(hiddenIframe);
+
+      // 새 탭에서 이미지 열기 (다운로드 차단 우회)
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.95);
+      const newTab = window.open();
+      newTab.document.write(`
+        <html><head><title>${s.productCode || "detail"}_page.jpg</title></head>
+        <body style="margin:0;background:#000;display:flex;flex-direction:column;align-items:center;">
+          <div style="padding:12px;background:#222;width:100%;text-align:center;position:sticky;top:0;z-index:9">
+            <span style="color:#fff;font-size:14px;margin-right:16px;">👇 이미지를 우클릭 → 다른 이름으로 저장</span>
+            <a href="${dataUrl}" download="${s.productCode || "detail"}_page.jpg" 
+               style="background:#4f46e5;color:#fff;padding:8px 20px;border-radius:6px;text-decoration:none;font-size:14px;font-weight:700;">
+              ⬇ 다운로드
+            </a>
+          </div>
+          <img src="${dataUrl}" style="max-width:100%;display:block;" />
+        </body></html>
+      `);
+      newTab.document.close();
+    } catch (e) {
+      alert("이미지 저장 중 오류가 발생했어요:\n" + e.message);
+      console.error(e);
+    }
+    setSavingJpg(false);
   };
 
-  const selectedBlock = blocks.find(b => b.id === selected);
-
-  // Categories for sidebar
-  const categories = [...new Set(BLOCK_TYPES.map(b => b.category))];
-
-  const generateHtml = () => {
-    return `<!DOCTYPE html>\n<html lang="ko">\n<head>\n  <meta charset="UTF-8">\n  <title>상세페이지</title>\n  <style>body{margin:0;font-family:sans-serif;max-width:800px;margin:0 auto;padding:20px}</style>\n</head>\n<body>\n${blocks.map(b => `  <!-- ${b.type} block -->`).join("\n")}\n</body>\n</html>`;
+  const updateImage = (idx, newImg) => {
+    const imgs = [...s.images];
+    imgs[idx] = newImg;
+    set("images", imgs);
   };
 
-  const DropZone = ({ idx }) => (
-    <div
-      onDragOver={e => { e.preventDefault(); setDragOver(idx); }}
-      onDragLeave={() => setDragOver(null)}
-      onDrop={() => onDrop(idx)}
-      style={{
-        height: dragOver === idx ? 40 : 8,
-        margin: "2px 0",
-        borderRadius: 6,
-        background: dragOver === idx ? "#e0e7ff" : "transparent",
-        border: dragOver === idx ? "2px dashed #4f46e5" : "2px solid transparent",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        transition: "all 0.15s",
-        fontSize: 12, color: "#6366f1",
-      }}
-    >
-      {dragOver === idx && "여기에 놓기"}
-    </div>
-  );
+  const updateSizeData = (row, colIdx, val) => {
+    const newData = { ...s.sizeData, [row]: [...(s.sizeData[row] || [])] };
+    newData[row][colIdx] = val;
+    set("sizeData", newData);
+  };
+
+  const toggleWash = (id) => {
+    const cur = s.washIcons;
+    set("washIcons", cur.includes(id) ? cur.filter(w => w !== id) : [...cur, id]);
+  };
 
   return (
-    <div style={{ display: "flex", height: "100vh", background: "#f1f5f9", fontFamily: "'Segoe UI', sans-serif", overflow: "hidden" }}>
-      {/* ===== LEFT SIDEBAR ===== */}
-      {!previewMode && (
-        <div style={{ width: 220, background: "#18181b", display: "flex", flexDirection: "column", flexShrink: 0 }}>
-          {/* Logo */}
-          <div style={{ padding: "16px 18px", borderBottom: "1px solid #27272a" }}>
-            <div style={{ color: "#fff", fontWeight: 800, fontSize: 15, letterSpacing: -0.5 }}>
-              <span style={{ color: "#6366f1" }}>◈</span> PageCraft
-            </div>
-          </div>
+    <div style={{ display: "flex", height: "100vh", fontFamily: "'Segoe UI', sans-serif", background: "#f8fafc", overflow: "hidden" }}>
 
-          {/* Tabs */}
-          <div style={{ display: "flex", borderBottom: "1px solid #27272a" }}>
-            {["blocks", "layers"].map(tab => (
-              <button key={tab} onClick={() => setSidebarTab(tab)}
+      {/* ── 왼쪽: 입력 패널 ── */}
+      <div style={{ width: 400, background: "#fff", borderRight: "1px solid #e5e7eb", display: "flex", flexDirection: "column", flexShrink: 0 }}>
+        {/* 헤더 */}
+        <div style={{ padding: "16px 20px", borderBottom: "1px solid #f3f4f6", background: "#18181b" }}>
+          <div style={{ color: "#fff", fontWeight: 800, fontSize: 15 }}>
+            <span style={{ color: "#6366f1" }}>◈</span> 오즈키즈 상세페이지 생성기
+          </div>
+          <div style={{ color: "#71717a", fontSize: 11, marginTop: 2 }}>입력하면 HTML이 자동으로 만들어져요</div>
+        </div>
+
+        {/* 입력 폼 */}
+        <div style={{ flex: 1, overflowY: "auto", padding: 20 }}>
+
+          <Section title="① 기본 정보">
+            <Field label="상품 코드" hint="예: o500, p123">
+              <Input value={s.productCode} onChange={v => set("productCode", v)} placeholder="o500" />
+            </Field>
+            <Field label="이미지 서버 주소" hint="이미지 URL 자동 생성에 사용">
+              <Input value={s.imageBaseUrl} onChange={v => set("imageBaseUrl", v)} />
+            </Field>
+          </Section>
+
+          <Section title="② 이미지">
+            {s.images.map((img, i) => (
+              <ImageUploader key={img.key} image={img} onChange={newImg => updateImage(i, newImg)} />
+            ))}
+          </Section>
+
+          <Section title="③ 텍스트">
+            <Field label="메인 타이틀" hint="줄바꿈은 Enter로">
+              <Textarea value={s.mainTitle} onChange={v => set("mainTitle", v)} rows={2} />
+            </Field>
+            <Field label="상품명 (굵은 부분)">
+              <Input value={s.productNameBold} onChange={v => set("productNameBold", v)} placeholder="코튼플로럴" />
+            </Field>
+            <Field label="상품명 (일반 부분)">
+              <Input value={s.productNameNormal} onChange={v => set("productNameNormal", v)} placeholder="원피스 가디건" />
+            </Field>
+            <Field label="상품 설명" hint="줄바꿈은 Enter로">
+              <Textarea value={s.description} onChange={v => set("description", v)} rows={4} />
+            </Field>
+            <Field label="체크포인트" hint="항목마다 Enter로 구분">
+              <Textarea value={s.checkpoints} onChange={v => set("checkpoints", v)} rows={3} />
+            </Field>
+            <Field label="컬러 정보">
+              <div style={{ display: "flex", gap: 8 }}>
+                <input type="color" value={s.colorDot} onChange={e => set("colorDot", e.target.value)}
+                  style={{ width: 40, height: 36, border: "1px solid #e5e7eb", borderRadius: 6, padding: 2, cursor: "pointer" }} />
+                <input value={s.colorInfo} onChange={e => set("colorInfo", e.target.value)}
+                  placeholder="화이트 / white"
+                  style={{ flex: 1, padding: "8px 10px", border: "1px solid #e5e7eb", borderRadius: 6, fontSize: 13 }} />
+              </div>
+            </Field>
+          </Section>
+
+          <Section title="④ 사이즈 정보">
+            <Field label="사이즈 유형">
+              <Input value={s.sizeType} onChange={v => set("sizeType", v)} placeholder="상의 / 하의" />
+            </Field>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                <thead>
+                  <tr>
+                    <th style={{ background: "#f3f4f6", padding: "6px 8px", border: "1px solid #e5e7eb" }}></th>
+                    {SIZE_COLS.map(c => <th key={c} style={{ background: "#f3f4f6", padding: "6px 8px", border: "1px solid #e5e7eb", fontWeight: 700 }}>{c}</th>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {SIZE_ROWS.map(row => (
+                    <tr key={row}>
+                      <td style={{ background: "#f9fafb", padding: "4px 8px", border: "1px solid #e5e7eb", fontWeight: 600, whiteSpace: "nowrap" }}>{row}</td>
+                      {SIZE_COLS.map((_, i) => (
+                        <td key={i} style={{ border: "1px solid #e5e7eb", padding: 2 }}>
+                          <input value={s.sizeData[row]?.[i] || ""} onChange={e => updateSizeData(row, i, e.target.value)}
+                            style={{ width: "100%", padding: "4px 6px", border: "none", fontSize: 12, textAlign: "center", background: "transparent" }} />
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Section>
+
+          <Section title="⑤ 제품정보">
+            {PRODUCT_INFO_ROWS.map(row => (
+              <Field key={row.key} label={row.label}>
+                <div style={{ display: "flex", gap: 8 }}>
+                  {row.options.map(opt => (
+                    <button key={opt} onClick={() => set("productInfo", { ...s.productInfo, [row.key]: opt })}
+                      style={{
+                        flex: 1, padding: "7px 0", border: "1px solid", borderRadius: 6, fontSize: 12, cursor: "pointer", fontWeight: 600,
+                        borderColor: s.productInfo[row.key] === opt ? "#4f46e5" : "#e5e7eb",
+                        background: s.productInfo[row.key] === opt ? "#4f46e5" : "#fff",
+                        color: s.productInfo[row.key] === opt ? "#fff" : "#374151",
+                      }}>
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              </Field>
+            ))}
+          </Section>
+
+          <Section title="⑥ 세탁 안내">
+            <Field label="세탁 아이콘 선택">
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {WASH_ICONS.map(w => (
+                  <div key={w.id} onClick={() => toggleWash(w.id)}
+                    style={{
+                      display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
+                      padding: "8px 10px", border: "2px solid", borderRadius: 8, cursor: "pointer",
+                      borderColor: s.washIcons.includes(w.id) ? "#4f46e5" : "#e5e7eb",
+                      background: s.washIcons.includes(w.id) ? "#eef2ff" : "#fff",
+                      minWidth: 60,
+                    }}>
+                    <img src={w.src} alt={w.label} style={{ width: 28, opacity: w.dimmed ? 0.3 : 0.8 }} />
+                    <span style={{ fontSize: 10, color: "#374151", textAlign: "center" }}>{w.label}</span>
+                  </div>
+                ))}
+              </div>
+            </Field>
+            <Field label="세탁 안내 문구">
+              <Textarea value={s.washNote} onChange={v => set("washNote", v)} rows={3} />
+            </Field>
+          </Section>
+
+          <Section title="⑦ 제품 상세">
+            <Field label="제품 번호"><Input value={s.productNumber} onChange={v => set("productNumber", v)} placeholder="O26SB03G" /></Field>
+            <Field label="소재" hint="줄바꿈으로 구분"><Textarea value={s.material} onChange={v => set("material", v)} rows={2} /></Field>
+            <Field label="제조사/수입사"><Input value={s.manufacturer} onChange={v => set("manufacturer", v)} /></Field>
+            <Field label="제조국"><Input value={s.madeIn} onChange={v => set("madeIn", v)} /></Field>
+          </Section>
+
+        </div>
+      </div>
+
+      {/* ── 오른쪽: 결과 패널 ── */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        {/* 툴바 */}
+        <div style={{ background: "#fff", borderBottom: "1px solid #e5e7eb", padding: "12px 20px", display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ display: "flex", gap: 2, background: "#f3f4f6", borderRadius: 8, padding: 3 }}>
+            {["edit", "preview"].map(t => (
+              <button key={t} onClick={() => setTab(t)}
                 style={{
-                  flex: 1, padding: "10px 0", background: sidebarTab === tab ? "#27272a" : "transparent",
-                  color: sidebarTab === tab ? "#fff" : "#71717a", border: "none", cursor: "pointer",
-                  fontSize: 12, fontWeight: 600,
+                  padding: "6px 16px", borderRadius: 6, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600,
+                  background: tab === t ? "#fff" : "transparent",
+                  color: tab === t ? "#111827" : "#6b7280",
+                  boxShadow: tab === t ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
                 }}>
-                {tab === "blocks" ? "블록" : "레이어"}
+                {t === "edit" ? "💻 HTML 코드" : "👁 미리보기"}
               </button>
             ))}
           </div>
-
-          <div style={{ flex: 1, overflowY: "auto", padding: "12px 0" }}>
-            {sidebarTab === "blocks" ? (
-              categories.map(cat => (
-                <div key={cat}>
-                  <div style={{ padding: "8px 16px 4px", fontSize: 10, fontWeight: 700, color: "#52525b", textTransform: "uppercase", letterSpacing: 1 }}>{cat}</div>
-                  {BLOCK_TYPES.filter(b => b.category === cat).map(bt => (
-                    <div key={bt.type}
-                      draggable
-                      onDragStart={() => onPaletteDragStart(bt.type)}
-                      onClick={() => {
-                        const nb = createBlock(bt.type);
-                        setBlocks(prev => [...prev, nb]);
-                        setSelected(nb.id);
-                      }}
-                      style={{
-                        padding: "8px 16px", display: "flex", alignItems: "center", gap: 10,
-                        cursor: "grab", color: "#d4d4d8", fontSize: 13,
-                        transition: "background 0.1s",
-                      }}
-                      onMouseEnter={e => e.currentTarget.style.background = "#27272a"}
-                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-                    >
-                      <span style={{ fontSize: 16, width: 20, textAlign: "center" }}>{bt.icon}</span>
-                      {bt.label}
-                    </div>
-                  ))}
-                </div>
-              ))
-            ) : (
-              <div style={{ padding: "8px 0" }}>
-                {blocks.map((b, i) => (
-                  <div key={b.id}
-                    onClick={() => setSelected(b.id)}
-                    style={{
-                      padding: "8px 16px", display: "flex", alignItems: "center", gap: 8,
-                      background: selected === b.id ? "#27272a" : "transparent",
-                      cursor: "pointer", color: selected === b.id ? "#fff" : "#a1a1aa", fontSize: 12,
-                    }}>
-                    <span>{BLOCK_TYPES.find(bt => bt.type === b.type)?.icon}</span>
-                    <span>{BLOCK_TYPES.find(bt => bt.type === b.type)?.label}</span>
-                    <span style={{ marginLeft: "auto", fontSize: 10, color: "#52525b" }}>#{i + 1}</span>
-                  </div>
-                ))}
-              </div>
-            )}
+          <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+            <button onClick={handleCopy}
+              style={{ padding: "8px 20px", background: copied ? "#059669" : "#fff", color: copied ? "#fff" : "#374151", border: "1px solid #e5e7eb", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
+              {copied ? "✓ 복사됨!" : "📋 코드 복사"}
+            </button>
+            <button onClick={handleDownload}
+              style={{ padding: "8px 20px", background: "#4f46e5", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 700 }}>
+              ⬇ HTML 다운로드
+            </button>
+            <button onClick={handleSaveJpg} disabled={savingJpg || tab !== "preview"}
+              style={{ padding: "8px 20px", background: savingJpg ? "#9ca3af" : (tab !== "preview" ? "#e5e7eb" : "#059669"), color: "#fff", border: "none", borderRadius: 8, cursor: tab !== "preview" ? "not-allowed" : "pointer", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap" }}>
+              {savingJpg ? "⏳ 저장 중..." : "🖼 JPG 내보내기"}
+            </button>
           </div>
         </div>
-      )}
 
-      {/* ===== CENTER CANVAS ===== */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        {/* Toolbar */}
-        <div style={{ background: "#fff", borderBottom: "1px solid #e5e7eb", padding: "10px 20px", display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ fontWeight: 700, fontSize: 13, color: "#111827", marginRight: "auto" }}>
-            상세페이지 에디터 · {blocks.length}개 블록
-          </div>
-          <button onClick={() => setPreviewMode(!previewMode)}
-            style={{ padding: "6px 16px", background: previewMode ? "#4f46e5" : "#fff", color: previewMode ? "#fff" : "#374151", border: "1px solid #e5e7eb", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
-            {previewMode ? "✏️ 편집" : "👁 미리보기"}
-          </button>
-          <button onClick={() => setShowHtml(!showHtml)}
-            style={{ padding: "6px 16px", background: "#fff", color: "#374151", border: "1px solid #e5e7eb", borderRadius: 6, cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
-            {"</>"} HTML
-          </button>
-        </div>
-
-        {/* Canvas or HTML view */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "24px" }}>
-          {showHtml ? (
-            <div style={{ background: "#1e1e2e", borderRadius: 12, padding: 24, maxWidth: 800, margin: "0 auto" }}>
-              <pre style={{ color: "#cdd6f4", fontSize: 12, margin: 0, whiteSpace: "pre-wrap", lineHeight: 1.7 }}>
-                {generateHtml()}
+        {/* 내용 */}
+        <div style={{ flex: 1, overflowY: "auto", padding: 24 }}>
+          {tab === "edit" ? (
+            <div style={{ background: "#1e1e2e", borderRadius: 12, padding: 24 }}>
+              <pre style={{ color: "#cdd6f4", fontSize: 12, margin: 0, whiteSpace: "pre-wrap", lineHeight: 1.7, fontFamily: "monospace" }}>
+                {html}
               </pre>
             </div>
           ) : (
-            <div style={{ maxWidth: 800, margin: "0 auto" }}
-              onClick={() => !previewMode && setSelected(null)}>
-              <div style={{ background: "#fff", borderRadius: 12, padding: "32px", boxShadow: "0 2px 20px rgba(0,0,0,0.08)", minHeight: 400 }}>
-                {blocks.length === 0 && (
-                  <div
-                    onDragOver={e => { e.preventDefault(); setDragOver(-1); }}
-                    onDragLeave={() => setDragOver(null)}
-                    onDrop={() => onDrop(0)}
-                    style={{
-                      textAlign: "center", padding: "80px 0", color: "#9ca3af",
-                      border: "2px dashed #e5e7eb", borderRadius: 12,
-                    }}>
-                    <div style={{ fontSize: 40, marginBottom: 12 }}>+</div>
-                    왼쪽에서 블록을 드래그해서 시작하세요
-                  </div>
-                )}
-
-                {!previewMode && <DropZone idx={0} />}
-
-                {blocks.map((block, i) => (
-                  <div key={block.id}>
-                    <div
-                      draggable={!previewMode}
-                      onDragStart={() => !previewMode && onBlockDragStart(block.id)}
-                      onDragEnd={() => setDragging(null)}
-                      style={{ opacity: dragging === block.id ? 0.4 : 1, position: "relative" }}
-                    >
-                      {!previewMode && (
-                        <div style={{
-                          position: "absolute", right: 0, top: 0, zIndex: 20,
-                          display: selected === block.id ? "flex" : "none",
-                          gap: 4,
-                        }}
-                          onMouseEnter={e => e.currentTarget.style.display = "flex"}
-                        >
-                          <button
-                            onClick={e => { e.stopPropagation(); deleteBlock(block.id); }}
-                            style={{ background: "#ef4444", color: "#fff", border: "none", borderRadius: 4, padding: "3px 8px", cursor: "pointer", fontSize: 11 }}>
-                            ✕ 삭제
-                          </button>
-                        </div>
-                      )}
-                      <div
-                        onMouseEnter={e => { if (!previewMode) e.currentTarget.querySelector("[data-actions]") && (e.currentTarget.querySelector("[data-actions]").style.display = "flex"); }}
-                      >
-                        <BlockRenderer
-                          block={block}
-                          selected={!previewMode && selected === block.id}
-                          onSelect={() => !previewMode && setSelected(block.id)}
-                        />
-                      </div>
-                    </div>
-                    {!previewMode && <DropZone idx={i + 1} />}
-                  </div>
-                ))}
+            <div style={{ background: "#f1f5f9", borderRadius: 12, overflow: "hidden", maxWidth: 900, margin: "0 auto" }}>
+              <div style={{ background: "#e2e8f0", padding: "8px 16px", fontSize: 12, color: "#64748b", display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#ef4444", display: "inline-block" }}></span>
+                <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#fbbf24", display: "inline-block" }}></span>
+                <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#22c55e", display: "inline-block" }}></span>
+                <span style={{ marginLeft: 8 }}>oz_page.css 스타일 적용 미리보기</span>
               </div>
+              <iframe
+                ref={iframeRef}
+                src="about:blank"
+                onLoad={handleIframeLoad}
+                style={{ width: "100%", height: "80vh", border: "none", background: "#fff" }}
+                title="preview"
+              />
             </div>
           )}
         </div>
       </div>
-
-      {/* ===== RIGHT PANEL ===== */}
-      {!previewMode && (
-        <div style={{ width: 260, background: "#fff", borderLeft: "1px solid #e5e7eb", overflowY: "auto", flexShrink: 0 }}>
-          <div style={{ padding: "14px 16px", borderBottom: "1px solid #f3f4f6", fontWeight: 700, fontSize: 13, color: "#111827" }}>
-            속성 편집
-          </div>
-          <PropPanel
-            block={selectedBlock}
-            onChange={(props) => selectedBlock && updateBlock(selectedBlock.id, props)}
-          />
-        </div>
-      )}
     </div>
   );
 }
